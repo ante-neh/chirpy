@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"encoding/json"
 )
 
 
@@ -65,4 +66,58 @@ func (s *Server) logMiddleware(next http.Handler) http.Handler{
 		log.Printf("%s %s", req.Method, req.URL.Path)
 		next.ServeHTTP(res, req)
 	})
+}
+
+//validate chirpy
+func(s *Server) handleValidateChirpy(res http.ResponseWriter, req *http.Request){
+	type requestBody struct{
+		Body string `json:"body"`
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	params := requestBody{}
+	err := decoder.Decode(&params)
+
+	if(err != nil){
+		respondWithError(res, http.StatusBadRequest, "Invalid Request payload")
+		return 
+	}
+
+	if len(params.Body) > 140{
+		respondWithError(res, http.StatusBadRequest, "Chirpy is too long")
+		return 
+	}
+
+	profaneWords := []string{"kerfuffle", "sharbert", "fornax"}
+	cleanedWords := params.Body 
+
+	for _, word := range profaneWords{
+		cleanedWords = strings.ReplaceAll(cleanedWords, word, "****")
+		cleanedWords = strings.ReplaceAll(cleanedWords, strings.Title(word), "****")
+	}
+
+	respondWithJson(res, http.StatusOK, cleanedWords)
+
+
+}
+
+func respondWithJson(res http.ResponseWriter, code int, payload interface{}) error{
+	response, err := json.Marshal(payload)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		res.Write([]byte(`{"error":"Something Went Wrong"}`))
+		return err
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	res.Header().Set("Access-Control-Allow-Origin", "*")
+	res.WriteHeader(code)
+	res.Write(response)
+	return nil
+}
+
+
+func respondWithError(res http.ResponseWriter, code int, message string) error{
+	return respondWithJson(res, code, map[string]string{"error":message})
+
 }
