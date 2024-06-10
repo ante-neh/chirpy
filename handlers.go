@@ -23,7 +23,7 @@ func (s *Server) handleHealthz(res http.ResponseWriter, req *http.Request){
 
 //metrics
 func (s *Server) handleMetrics(res http.ResponseWriter, req *http.Request){
-	body := fmt.Sprintf(": %d", s.fileServerHits)
+	body := fmt.Sprintf("%d", s.fileServerHits)
 	respondWithJson(res, http.StatusOK, map[string]string{"Hits":body})
 }
 
