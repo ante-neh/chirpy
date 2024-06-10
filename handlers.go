@@ -16,27 +16,22 @@ type Server struct{
 
 //healthz
 func (s *Server) handleHealthz(res http.ResponseWriter, req *http.Request){
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	res.WriteHeader(http.StatusOK)
-	res.Write([]byte("OK"))
+	respondWithJson(res, http.StatusOK, "OK")
+
 }
 
 
 //metrics
 func (s *Server) handleMetrics(res http.ResponseWriter, req *http.Request){
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	res.WriteHeader(http.StatusOK)
-	body := fmt.Sprintf("Hits: %d", s.fileServerHits)
-	res.Write([]byte(body))
+	body := fmt.Sprintf(": %d", s.fileServerHits)
+	respondWithJson(res, http.StatusOK, map[string]string{"Hits":body})
 }
 
 
 //reset
 func (s *Server) handleReset(res http.ResponseWriter, req *http.Request){
 	s.fileServerHits = 0
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	res.WriteHeader(http.StatusOK)
-	res.Write([]byte("File Server hit reset to 0"))
+	respondWithJson(res, http.StatusOK, map[string]string{"message":"File Server hit reset to 0"})
 }
 
 
