@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sort"
 	"sync"
 )
 
@@ -80,4 +81,47 @@ func (db *DB) loadDb() (DbStructure, error){
 	 }
 
 	 return dbStructure, nil 
+}
+
+
+
+func (db *DB) createChirp(body string) (Chirp, error) {
+	dbStructure, err := db.loadDb()
+	if err != nil {
+		return Chirp{}, err
+	}
+
+	newId := len(dbStructure.Chirps) + 1
+
+	newChirp := Chirp{
+		ID:newId,
+		Body:body,
+	}
+
+	dbStructure.Chirps[newId] = newChirp
+	if err:= db.WriteDb(dbStructure); err != nil {
+		return Chirp{}, err
+	}
+
+	return newChirp, nil
+}
+
+
+func (db *DB) getChirps() ([]Chirp, error){
+	dbStructure, err := db.loadDb()
+	if err != nil {
+		return nil, err
+	}
+
+	chirps := make([]Chirp, 0, len(dbStructure.Chirps))
+
+	for _, chirp := range dbStructure.Chirps{
+		chirps =append(chirps, chirp)
+	}
+
+	sort.Slice(chirps, func(i, j int) bool {
+		return chirps[i].ID < chirps[j].ID
+	})
+	
+	return chirps, nil
 }
