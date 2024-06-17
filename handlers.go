@@ -91,7 +91,7 @@ func(s *Server) handleValidateChirpy(res http.ResponseWriter, req *http.Request)
 		cleanedWords = strings.ReplaceAll(cleanedWords, strings.Title(word), "****")
 	}
 
-	respondWithJson(res, http.StatusOK, cleanedWords)
+	respondWithJson(res, http.StatusOK, map[string]string{"chirpy":cleanedWords})
 
 
 }
