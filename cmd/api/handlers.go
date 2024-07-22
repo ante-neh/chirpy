@@ -114,7 +114,7 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "Unable to create a user")
 	}
-	
+
 	app.responseWithJson(w, 201, map[string]int{"UserId":lastId})
 	
 }

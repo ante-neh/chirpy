@@ -11,6 +11,21 @@ type ChirpModel struct{
 }
 
 
+func (m *ChirpModel) createUser(email string) (int, error){
+	stmt := "INSERT INTO users(email) VALUES(?)"
+	result, err := m.Db.Exec(stmt, email)
+	if err != nil {
+		return 0, err
+	}
+
+	lastId, err := result.LastInsertId() 
+	if err != nil{
+		return 0, err
+	}
+
+	return int(lastId), nil
+}
+
 func(m *ChirpModel) InsertChirp(content string) (int, error){ 
 	stmt := "INSERT INTO chirpies(body) values(?)"
 	result, err := m.Db.Exec(stmt, content)
@@ -75,17 +90,3 @@ func (m *ChirpModel) GetChirps()([]*models.Chirp, error){
 }
 
 
-func (m *ChirpModel) createUser(email string) (int, error){
-	stmt := "INSERT INTO users(email) VALUES(?)"
-	result, err := m.Db.Exec(stmt, email)
-	if err != nil {
-		return 0, err
-	}
-
-	lastId, err := result.LastInsertId() 
-	if err != nil{
-		return 0, err
-	}
-
-	return int(lastId), nil
-}
