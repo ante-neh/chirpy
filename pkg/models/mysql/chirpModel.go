@@ -52,6 +52,8 @@ func (m *ChirpModel) GetChirps()([]*models.Chirp, error){
 		return nil, err
 	}
 
+	defer rows.Close() 
+
 	chirps := []*models.Chirp{} 
 	
 	for rows.Next(){
@@ -70,4 +72,20 @@ func (m *ChirpModel) GetChirps()([]*models.Chirp, error){
 	}
 	
 	return chirps, nil 
+}
+
+
+func (m *ChirpModel) createUser(email string) (int, error){
+	stmt := "INSERT INTO users(email) VALUES(?)"
+	result, err := m.Db.Exec(stmt, email)
+	if err != nil {
+		return 0, err
+	}
+
+	lastId, err := result.LastInsertId() 
+	if err != nil{
+		return 0, err
+	}
+
+	return int(lastId), nil
 }

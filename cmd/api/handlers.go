@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
 	"github.com/ante-neh/chirpy/pkg/models"
 )
 
@@ -93,4 +92,29 @@ func (app *application) handleGetChirp(w http.ResponseWriter, r *http.Request){
 	}
 
 	app.responseWithJson(w, 200, result)
+}
+
+
+func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
+	type reqeustBody struct{
+		Email string `json:"email"`
+	}
+
+	decoder := json.NewDecoder(r.Body) 
+	params := reqeustBody{} 
+	err := decoder.Decode(&params) 
+
+	if err != nil{
+		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return 
+	}
+
+	lastId, err := app.chirp.createUser(params.Email)
+
+	if err != nil{
+		app.responseWithError(w, http.StatusInternalServerError, "Unable to create a user")
+	}
+	
+	app.responseWithJson(w, 201, map[string]int{"UserId":lastId})
+	
 }
