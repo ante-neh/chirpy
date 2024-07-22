@@ -11,14 +11,20 @@ import (
 
 
 
-func (app *application) handleHome(w http.ResponseWriter, r *http.Request) {
-	app.responseWithJson(w, 200, map[string]string{"message":"Hello I am from the home page"})
-}
-
-
 func (app *application) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	app.responseWithJson(w, 200, map[string]string{"message":"Yes the server is up"})
 }
+
+
+func (app *application) handleHome(w http.ResponseWriter, r *http.Request) {
+	chirps, err := app.chirp.GetChirps () 
+	if err != nil{
+		app.responseWithError(w, 500, "Something went wrong")
+	}
+	app.responseWithJson(w, 200, map[string][]*models.Chirp{"chirps": chirps})
+}
+
+
 
 func (app *application) handleCreateChirp(w http.ResponseWriter, r *http.Request){
 

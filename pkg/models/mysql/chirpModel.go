@@ -29,9 +29,8 @@ func(m *ChirpModel) InsertChirp(content string) (int, error){
 
 func(m *ChirpModel) GetChirp(id int) ( *models.Chirp, error){
 	stmt := "SELECT id, body FROM chirpies WHERE id=?" 
-	row := m.Db.QueryRow(stmt, id) 
 	chirp := &models.Chirp{} 
-	err := row.Scan(&chirp.Id, &chirp.Body)
+	err := m.Db.QueryRow(stmt, id).Scan(&chirp.Id, &chirp.Body)
 
 	if err == sql.ErrNoRows{
 		return nil, models.ErrNoRecord
@@ -42,4 +41,33 @@ func(m *ChirpModel) GetChirp(id int) ( *models.Chirp, error){
 	}
 
 	return chirp, nil 
+}
+
+
+func (m *ChirpModel) GetChirps()([]*models.Chirp, error){
+	stmt := "SELECT * from chirpies"
+	rows, err := m.Db.Query(stmt)
+
+	if err != nil{
+		return nil, err
+	}
+
+	chirps := []*models.Chirp{} 
+	
+	for rows.Next(){
+		chirp := &models.Chirp{}
+		err = rows.Scan(&chirp.Id, &chirp.Body) 
+
+		if err != nil{
+			return nil, err
+		} 
+
+		chirps = append(chirps, chirp)
+	}
+
+	if err = rows.Err(); err != nil{
+		return nil, err
+	}
+	
+	return chirps, nil 
 }
