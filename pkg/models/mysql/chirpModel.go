@@ -11,7 +11,7 @@ type ChirpModel struct{
 }
 
 
-func (m *ChirpModel) createUser(email string) (int, error){
+func (m *ChirpModel) CreateUser(email string) (int, error){
 	stmt := "INSERT INTO users(email) VALUES(?)"
 	result, err := m.Db.Exec(stmt, email)
 	if err != nil {

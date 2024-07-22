@@ -109,7 +109,7 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
-	lastId, err := app.chirp.createUser(params.Email)
+	lastId, err := app.chirp.CreateUser(params.Email)
 
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "Unable to create a user")
