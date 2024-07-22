@@ -1,6 +1,6 @@
 package mysql
 
-import(
+import (
 	"database/sql"
 	"github.com/ante-neh/chirpy/pkg/models"
 )
@@ -27,6 +27,19 @@ func(m *ChirpModel) InsertChirp(content string) (int, error){
 }
 
 
-func(m *ChirpModel) GetChirp(id int) *models.Chirp{
-	return nil
+func(m *ChirpModel) GetChirp(id int) ( *models.Chirp, error){
+	stmt := "SELECT id, body FROM chirpies WHERE id=?" 
+	row := m.Db.QueryRow(stmt, id) 
+	chirp := &models.Chirp{} 
+	err := row.Scan(&chirp.Id, &chirp.Body)
+
+	if err == sql.ErrNoRows{
+		return nil, models.ErrNoRecord
+	}
+
+	if err != nil{
+		return nil, err
+	}
+
+	return chirp, nil 
 }

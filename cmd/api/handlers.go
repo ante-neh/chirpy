@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/ante-neh/chirpy/pkg/models"
 )
 
 
@@ -18,7 +20,7 @@ func (app *application) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	app.responseWithJson(w, 200, map[string]string{"message":"Yes the server is up"})
 }
 
-func (app  *application) handleCreateChirp(w http.ResponseWriter, r *http.Request){
+func (app *application) handleCreateChirp(w http.ResponseWriter, r *http.Request){
 
 	type reqBody struct{
 		Body string `json:"body"`
@@ -61,4 +63,28 @@ func (app  *application) handleCreateChirp(w http.ResponseWriter, r *http.Reques
 
 	app.responseWithJson(w, 201, map[string]int{"body":id})
 
+}
+
+
+func (app *application) handleGetChirp(w http.ResponseWriter, r *http.Request){
+	url := strings.TrimPrefix(r.URL.Path, "/chirps/")
+	id, err := strconv.Atoi(url)
+
+	if err != nil{
+		app.responseWithError(w, 404, "bad request")
+	}
+
+	result, err := app.chirp.GetChirp(id) 
+
+	if err != nil {
+		if err == models.ErrNoRecord{
+
+			app.responseWithError(w, 404, "Chirp not found")
+		}
+
+		app.responseWithError(w, 500, "Something went wrong")
+		return 
+	}
+
+	app.responseWithJson(w, 200, result)
 }

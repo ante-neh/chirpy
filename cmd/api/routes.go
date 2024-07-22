@@ -7,6 +7,8 @@ func (app *application) routes() *http.ServeMux{
 	mux.Handle("GET /", http.HandlerFunc(app.handleHome))
 	mux.Handle("GET /healthz", http.HandlerFunc(app.handleHealthz))
 	mux.Handle("POST /chirps", http.HandlerFunc(app.handleCreateChirp))
+	mux.Handle("GET /chirps/", http.HandlerFunc(app.handleGetChirp))
+
 	
 	return mux
 }

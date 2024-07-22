@@ -6,9 +6,9 @@ import(
 )
 
 
-var ErrNoRecord = errors.New("")
+var ErrNoRecord = errors.New("there is no chirp found")
 
 type Chirp struct{
-	id int;
-	content string;
+    Id int;
+	Body string;
 }
