@@ -7,12 +7,13 @@ import (
 	"net/http"
 	"os"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/ante-neh/chirpy/pkg/models/mysql"
 )
 
 type application struct{
 	infoLog *log.Logger 
 	errorLog *log.Logger
-	db *sql.DB
+	chirp *mysql.ChirpModel
 }
 
 func main() {
@@ -23,7 +24,6 @@ func main() {
 
 	infoLog := log.New(os.Stdout, "Info\t", log.Ldate | log.Ltime)
 	errorLog := log.New(os.Stdout, "Error\t", log.Ldate | log.Ltime | log.Lshortfile)
-	f, er := os.OpenFile("/tmp/info.log", os.O_RDWR | os.O_CREATE, 0666)
 
 	db, e := openDb(*dns)
 
@@ -37,16 +37,10 @@ func main() {
 	app := &application{
 		infoLog: infoLog,
 		errorLog: errorLog,
-		db: db,
+		chirp: &mysql.ChirpModel{Db:db},
 	}
 
 
-
-	if er != nil {
-		errorLog.Fatal(er)
-	}
-
-	defer f.Close()
 	
 
 	server := &http.Server{
