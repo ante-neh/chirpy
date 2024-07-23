@@ -11,9 +11,9 @@ type ChirpModel struct{
 }
 
 
-func (m *ChirpModel) CreateUser(email string) (int, error){
-	stmt := "INSERT INTO users(email) VALUES(?)"
-	result, err := m.Db.Exec(stmt, email)
+func (m *ChirpModel) CreateUser(email, password string) (int, error){
+	stmt := "INSERT INTO user(email,password) VALUES(?, ?)"
+	result, err := m.Db.Exec(stmt, email, password)
 	if err != nil {
 		return 0, err
 	}
@@ -24,6 +24,22 @@ func (m *ChirpModel) CreateUser(email string) (int, error){
 	}
 
 	return int(lastId), nil
+}
+
+func (m *ChirpModel) UserLogin(email string) (*models.User, error){
+	stmt := "SELECT id, password, email FROM user WHERE email=?"
+	u := &models.User{}
+	err := m.Db.QueryRow(stmt, email).Scan(&u.Id, &u.Email, &u.Password)
+	
+	if err == sql.ErrNoRows{
+		return nil, models.ErrNoUser
+	}
+
+	if err != nil{
+		return nil, err
+	}
+
+	return u, nil 
 }
 
 func(m *ChirpModel) InsertChirp(content string) (int, error){ 

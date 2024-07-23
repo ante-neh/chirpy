@@ -6,12 +6,15 @@ import (
 	"strconv"
 	"strings"
 	"github.com/ante-neh/chirpy/pkg/models"
+	"golang.org/x/crypto/bcrypt"
+	"fmt"
 )
 
 
 
 func (app *application) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	app.responseWithJson(w, 200, map[string]string{"message":"Yes the server is up"})
+
 }
 
 
@@ -21,6 +24,7 @@ func (app *application) handleHome(w http.ResponseWriter, r *http.Request) {
 		app.responseWithError(w, 500, "Something went wrong")
 	}
 	app.responseWithJson(w, 200, map[string][]*models.Chirp{"chirps": chirps})
+ 
 }
 
 
@@ -68,6 +72,7 @@ func (app *application) handleCreateChirp(w http.ResponseWriter, r *http.Request
 
 	app.responseWithJson(w, 201, map[string]int{"body":id})
 
+
 }
 
 
@@ -77,6 +82,7 @@ func (app *application) handleGetChirp(w http.ResponseWriter, r *http.Request){
 
 	if err != nil{
 		app.responseWithError(w, 404, "bad request")
+		return 
 	}
 
 	result, err := app.chirp.GetChirp(id) 
@@ -92,12 +98,14 @@ func (app *application) handleGetChirp(w http.ResponseWriter, r *http.Request){
 	}
 
 	app.responseWithJson(w, 200, result)
+	
 }
 
 
 func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 	type reqeustBody struct{
 		Email string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body) 
@@ -109,12 +117,68 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
-	lastId, err := app.chirp.CreateUser(params.Email)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.DefaultCost) 
+	if err != nil{
+		app.responseWithError(w, 500, "unable to hash the password")
+		return 
+	}
+
+	fmt.Println("Hashed password:", string(hashedPassword))
+
+	lastId, err := app.chirp.CreateUser(params.Email, string(hashedPassword))
 
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "Unable to create a user")
+		return 
 	}
 
 	app.responseWithJson(w, 201, map[string]int{"UserId":lastId})
 	
+}
+
+
+func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
+	type reqBody struct{
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	params := reqBody{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&params)
+
+	if err != nil{
+		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return 
+	}
+
+
+	user, err := app.chirp.UserLogin(params.Email)
+	if err != nil{
+		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return 
+	}
+
+	fmt.Println(user.Email)
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Email), []byte(params.Password)); err != nil{
+		app.errorLog.Println(err)
+		app.responseWithError(w, 401, "Unauthorized user")
+		return 
+	}
+
+	type response struct{
+		id int 
+		email string
+	}
+
+	res := response{
+		id:user.Id,
+		email:user.Email,
+	}
+
+	app.responseWithJson(w, 200, res)
+	
+
+
 }
