@@ -10,6 +10,6 @@ func (app *application) routes() *http.ServeMux{
 	mux.Handle("POST /v1/chirps", http.HandlerFunc(app.handleCreateChirp))
 	mux.Handle("POST /v1/users", http.HandlerFunc(app.handleCreateUser))
 	mux.Handle("POST /v1/login", http.HandlerFunc(app.handleLogin))
-	
+	mux.Handle("PUT /v1/users", http.HandlerFunc(app.handleUpdate))
 	return mux
 }

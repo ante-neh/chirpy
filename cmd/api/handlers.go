@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"github.com/ante-neh/chirpy/pkg/models"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -136,10 +138,10 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 
 
 func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
-	type reqBody struct{
-		Email string `json:"email"`
-		Password string `json:"password"`
-		Expires_in_seconds string `json:"expires_in_seconds`
+	type reqBody struct {
+		Email             string `json:"email"`
+		Password          string `json:"password"`
+		Expires_in_seconds  *int   `json:"expires_in_seconds"`
 	}
 
 	params := reqBody{}
@@ -147,6 +149,7 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 	err := decoder.Decode(&params)
 
 	if err != nil{
+		app.errorLog.Println(err)
 		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return 
 	}
@@ -154,6 +157,7 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 
 	user, err := app.chirp.UserLogin(params.Email)
 	if err != nil{
+		app.errorLog.Println(err)
 		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return 
 	}
@@ -166,18 +170,70 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
+
+	var expires int 
+
+	if params.Expires_in_seconds != nil{
+		if *params.Expires_in_seconds > 86000{
+			expires = 86000
+		}
+	}else{
+		expires = 86000
+	}
+
+
+	token, err := app.createJWT(strconv.Itoa(user.Id), expires)
+
+	if err != nil{
+		app.errorLog.Println(err)
+		app.responseWithError(w, 500, "Somthing went wrong")
+		return 
+	}
+
 	type response struct{
 		id int 
 		email string
+		token string
 	}
 
 	res := response{
 		id:user.Id,
 		email:user.Email,
+		token:token,
 	}
+	
 
 	app.responseWithJson(w, 200, res)
 	
+}
 
+
+
+func(app *application) handleUpdate(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("Authorization") 
+	token := strings.TrimPrefix(authorization, "Bearer")
+	app.infoLog.Println(token)
+
+}
+
+
+func (app *application) createJWT(id string, expires_at int)(string, error) {
+	claims := jwt.RegisteredClaims{
+		ExpiresAt:jwt.NewNumericDate(time.Now().Add(time.Duration(expires_at) * time.Second)), 
+		Issuer:"Chirpy",
+		IssuedAt:jwt.NewNumericDate(time.Now()),
+		Subject: id,
+		}
+
+	
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte(app.jwt)) 
+
+	if err != nil{
+		return "", err
+	}
+	
+	return tokenString, nil
 
 }
