@@ -7,7 +7,6 @@ import (
 	"strings"
 	"github.com/ante-neh/chirpy/pkg/models"
 	"golang.org/x/crypto/bcrypt"
-	"fmt"
 )
 
 
@@ -123,7 +122,6 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
-	fmt.Println("Hashed password:", string(hashedPassword))
 
 	lastId, err := app.chirp.CreateUser(params.Email, string(hashedPassword))
 
@@ -141,6 +139,7 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 	type reqBody struct{
 		Email string `json:"email"`
 		Password string `json:"password"`
+		Expires_in_seconds string `json:"expires_in_seconds`
 	}
 
 	params := reqBody{}
@@ -159,7 +158,7 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
-	fmt.Println(user.Email)
+	
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Email), []byte(params.Password)); err != nil{
 		app.errorLog.Println(err)
