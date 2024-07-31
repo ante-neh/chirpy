@@ -13,6 +13,7 @@ func(app *application) responseWithJson(w http.ResponseWriter, code int, payload
 		return err
 	}
 
+	
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(code)
@@ -20,6 +21,8 @@ func(app *application) responseWithJson(w http.ResponseWriter, code int, payload
 	
 	return nil
 }
+
+
 
 func (app *application) responseWithError(w http.ResponseWriter, code int, message string) error {
 	return app.responseWithJson(w, code, map[string]string{"error":message})

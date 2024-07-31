@@ -1,7 +1,12 @@
 package main
 
 import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,7 +25,7 @@ func (app *application) handleHealthz(w http.ResponseWriter, r *http.Request) {
 
 
 func (app *application) handleHome(w http.ResponseWriter, r *http.Request) {
-	chirps, err := app.chirp.GetChirps () 
+	chirps, err := app.chirp.GetChirps() 
 	if err != nil{
 		app.responseWithError(w, 500, "Something went wrong")
 	}
@@ -31,14 +36,21 @@ func (app *application) handleHome(w http.ResponseWriter, r *http.Request) {
 
 
 func (app *application) handleCreateChirp(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("authorization")
+	tokenString := strings.TrimPrefix(authorization, "Bearer")
+	claims, er := app.validateToken(tokenString) 
+
+	if er != nil{
+		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
+		return 
+	}
 
 	type reqBody struct{
 		Body string `json:"body"`
 	}
 
 	params := reqBody{}
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&params)
+	err := json.NewDecoder(r.Body).Decode(&params)
 
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
@@ -64,7 +76,7 @@ func (app *application) handleCreateChirp(w http.ResponseWriter, r *http.Request
 		words[i] = cleanedWord 
 	}
 
-	id, err := app.chirp.InsertChirp(strings.Join(words, " "))
+	id, err := app.chirp.InsertChirp(strings.Join(words, " "), claims.Subject)
 
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "unable to create chirp")
@@ -78,7 +90,7 @@ func (app *application) handleCreateChirp(w http.ResponseWriter, r *http.Request
 
 
 func (app *application) handleGetChirp(w http.ResponseWriter, r *http.Request){
-	url := strings.TrimPrefix(r.URL.Path, "/chirps/")
+	url := strings.TrimPrefix(r.URL.Path, "/chirps/") 
 	id, err := strconv.Atoi(url)
 
 	if err != nil{
@@ -92,6 +104,7 @@ func (app *application) handleGetChirp(w http.ResponseWriter, r *http.Request){
 		if err == models.ErrNoRecord{
 
 			app.responseWithError(w, 404, "Chirp not found")
+			return 
 		}
 
 		app.responseWithError(w, 500, "Something went wrong")
@@ -109,9 +122,9 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 		Password string `json:"password"`
 	}
 
-	decoder := json.NewDecoder(r.Body) 
+	
 	params := reqeustBody{} 
-	err := decoder.Decode(&params) 
+	err := json.NewDecoder(r.Body).Decode(&params) 
 
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
@@ -124,8 +137,14 @@ func(app *application) handleCreateUser(w http.ResponseWriter, r *http.Request){
 		return 
 	}
 
+	refreshToken, err := app.generateRefreshToken(5)
+	if err != nil{
+		app.responseWithError(w, 500, "unable to generate refresh Token")
+		return 
+	}
 
-	lastId, err := app.chirp.CreateUser(params.Email, string(hashedPassword))
+
+	lastId, err := app.chirp.CreateUser(params.Email, string(hashedPassword), refreshToken)
 
 	if err != nil{
 		app.responseWithError(w, http.StatusInternalServerError, "Unable to create a user")
@@ -145,8 +164,8 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 	}
 
 	params := reqBody{}
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&params)
+
+	err := json.NewDecoder(r.Body).Decode(&params)
 
 	if err != nil{
 		app.errorLog.Println(err)
@@ -156,6 +175,11 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 
 
 	user, err := app.chirp.UserLogin(params.Email)
+	if err == models.ErrNoUser{
+		app.responseWithError(w, 404, "Account Not Exist")
+		return 
+	}
+
 	if err != nil{
 		app.errorLog.Println(err)
 		app.responseWithError(w, http.StatusInternalServerError, "Something went wrong")
@@ -164,7 +188,7 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 
 	
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Email), []byte(params.Password)); err != nil{
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(params.Password)); err != nil{
 		app.errorLog.Println(err)
 		app.responseWithError(w, 401, "Unauthorized user")
 		return 
@@ -185,21 +209,23 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 	token, err := app.createJWT(strconv.Itoa(user.Id), expires)
 
 	if err != nil{
-		app.errorLog.Println(err)
 		app.responseWithError(w, 500, "Somthing went wrong")
+		app.errorLog.Fatal(err)
 		return 
 	}
 
 	type response struct{
-		id int 
-		email string
-		token string
+		Id int 
+		Email string
+		Token string
+		RefreshToken string 
 	}
 
-	res := response{
-		id:user.Id,
-		email:user.Email,
-		token:token,
+	res := &response{
+		Id:user.Id,
+		Email:params.Email,
+		Token:token,
+		RefreshToken:user.RefreshToken,
 	}
 	
 
@@ -212,9 +238,80 @@ func (app *application) handleLogin(w http.ResponseWriter, r *http.Request){
 func(app *application) handleUpdate(w http.ResponseWriter, r *http.Request){
 	authorization := r.Header.Get("Authorization") 
 	token := strings.TrimPrefix(authorization, "Bearer")
-	app.infoLog.Println(token)
+	claims, err := app.validateToken(token)
+
+	if err != nil{
+		app.responseWithError(w, http.StatusInternalServerError, "invalid token")
+	}
+
+	id, er := app.chirp.UpdateChirp(claims.Subject)
+
+	if er != nil{
+		app.responseWithError(w, 400, "Unathorized")
+		return 
+	}
+
+
+	app.responseWithJson(w, 200, map[string]int{"id":id})
 
 }
+
+
+func (app *application) handleDeleteChirp(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("authorization")
+	tokenString := strings.TrimPrefix(authorization, "Bearer")
+	claims, err := app.validateToken(tokenString)
+	if err != nil{
+		app.responseWithError(w, 403, "Unauthorized")
+		return 
+	}
+
+	err = app.chirp.DeleteChirp(claims.Subject)
+	if err != nil{
+		return 
+	}
+
+	app.responseWithJson(w, 200, map[string]string{"message":"chirp deleted"})
+}
+
+func (app *application) handleRefresh(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("Authorization")
+	refresh := strings.TrimPrefix(authorization, "Bearer") 
+	user, err := app.chirp.GetRefreshToken(refresh)
+
+	if err != sql.ErrNoRows{
+		app.responseWithError(w, 404, "user doen't exist")
+		return 
+	}
+	if err != nil{
+		app.responseWithJson(w, 500, "Internal server error")
+		return 
+	}
+
+	token, err := app.createJWT(strconv.Itoa(user.Id), 3600 ) 
+
+	if err != nil{
+		app.responseWithError(w, 500, "Unable to create JWT")
+		return 
+
+	}
+    app.responseWithJson(w, 200, map[string]string{"token":token})
+
+}
+
+func (app *application) handleRevoke(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("Authorization")
+	refreshToken := strings.TrimPrefix(authorization, "Bearer")
+	err := app.chirp.RevokeToken(refreshToken)
+
+	if err != nil{
+		app.responseWithError(w, 500, "Internal Server Error")
+	}
+
+	app.responseWithJson(w, 204, "") 
+
+}
+
 
 
 func (app *application) createJWT(id string, expires_at int)(string, error) {
@@ -236,4 +333,39 @@ func (app *application) createJWT(id string, expires_at int)(string, error) {
 	
 	return tokenString, nil
 
+}
+
+func (app *application) generateRefreshToken(length int) (string, error){
+	bytes := make([]byte, length)
+
+	_, err := io.ReadFull(rand.Reader, bytes)
+
+	if err != nil{
+		return "", nil
+	}
+
+	return hex.EncodeToString(bytes), nil 
+}
+
+
+func (app *application) validateToken(tokenString string) (*jwt.RegisteredClaims, error){
+	claims := &jwt.RegisteredClaims{}
+	
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token)(interface{},error){
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+
+		return app.jwt, nil 
+	})
+
+	if err != nil{
+		return nil, err
+	}
+
+	if !token.Valid{
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	return claims, nil
 }

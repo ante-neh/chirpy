@@ -11,5 +11,9 @@ func (app *application) routes() *http.ServeMux{
 	mux.Handle("POST /v1/users", http.HandlerFunc(app.handleCreateUser))
 	mux.Handle("POST /v1/login", http.HandlerFunc(app.handleLogin))
 	mux.Handle("PUT /v1/users", http.HandlerFunc(app.handleUpdate))
+	mux.Handle("POST /v1/refresh", http.HandlerFunc(app.handleRefresh))
+	mux.Handle("POST /v1/revoke", http.HandlerFunc(app.handleRevoke))
+	mux.Handle("DELETE /v1/chirps/", http.HandlerFunc(app.handleDeleteChirp))
+	
 	return mux
 }
